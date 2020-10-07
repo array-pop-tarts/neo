@@ -32,13 +32,22 @@ function handleData(data, startDate) {
     let neos = allNeos.filter(potentiallyHazardousObjects);
     neos.sort((a, b) => a.current_dist_ld - b.current_dist_ld);
 
-    console.log(neos);
-
     draw(neos);
 }
 
 function draw(neos) {
-    let svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const ns = "http://www.w3.org/2000/svg";
+    let svg = document.createElementNS(ns, "svg");
+    svg.setAttributeNS(null, "viewBox", "0 0 500 1000");
+
+    let neo = document.createElementNS(ns, "circle");
+    neo.setAttributeNS(null, "cx", 25);
+    neo.setAttributeNS(null, "cy", 25);
+    neo.setAttributeNS(null, "r", 20);
+    neo.setAttributeNS(null, "stroke", "#ffffff");
+
+    svg.appendChild(neo);
+
     $("main").append(svg);
 }
 
