@@ -38,15 +38,26 @@ function handleData(data, startDate) {
 function draw(neos) {
     const ns = "http://www.w3.org/2000/svg";
     let svg = document.createElementNS(ns, "svg");
-    svg.setAttributeNS(null, "viewBox", "0 0 500 1000");
 
-    let neo = document.createElementNS(ns, "circle");
-    neo.setAttributeNS(null, "cx", 25);
-    neo.setAttributeNS(null, "cy", 25);
-    neo.setAttributeNS(null, "r", 20);
-    neo.setAttributeNS(null, "stroke", "#ffffff");
+    const boxWidth = 1000;
+    const boxHeight = 4000;
 
-    svg.appendChild(neo);
+    svg.setAttributeNS(null, "viewBox", "0 0 " + boxWidth + " " + boxHeight);
+
+    const laneWidth = boxWidth / 10;
+    const ldMultiplier = 100;
+
+    neos.forEach(function (neo) {
+        let object = document.createElementNS(ns, "circle");
+
+        object.setAttribute("cx", (xPosition(neo['orbit_id'], laneWidth)).toString());
+        object.setAttribute("cy", (yPosition(neo['current_dist_ld'], ldMultiplier)).toString());
+        object.setAttribute("r", (displayRadius(neo['diameter'])).toString());
+        object.setAttribute("stroke", "#ffffff");
+        object.setAttribute("fill", "#ffffff");
+
+        svg.appendChild(object);
+    });
 
     $("main").append(svg);
 }
@@ -105,7 +116,6 @@ function setNeoBaseData(baseData, fields) {
  */
 function setNeoAdditionalData(neo, startDate) {
 
-    neo['orbital_lane'] = orbitalLane(neo['orbit_id']);
     neo['closest_dist_ld'] = convertAuToLd(neo['dist']);
     neo['diameter'] = diameterFromMagnitude(neo['h']);
     neo['closest_date'] = dateFromCd(neo['cd']);
@@ -128,12 +138,8 @@ function setNeoAdditionalData(neo, startDate) {
  * @returns {boolean}
  */
 function potentiallyHazardousObjects(neo) {
-    const PHO_DISTANCE_LD = 20;
+    const PHO_DISTANCE_LD = 40;
     return neo['current_dist_ld'] < PHO_DISTANCE_LD;
-}
-
-function orbitalLane(orbitId) {
-    return orbitId.slice(-1);
 }
 
 /**
@@ -226,4 +232,88 @@ function ldPerDay(velocityKmS) {
  */
 function currentDistance(closestDistance, velocity, days) {
     return closestDistance + (velocity * days);
+}
+
+/**
+ * Determine the x position of the object based on its JPL orbit ID.
+ * @param {number} orbitId
+ * @param {number} laneWidth
+ * @returns {number}
+ */
+function xPosition(orbitId, laneWidth) {
+    return (orbitalLane(orbitId) * laneWidth) - (laneWidth / 2)
+}
+
+/**
+ * Derive a lane in which to display the object from its assigned orbit.
+ * @param {number} orbitId
+ * @returns {number}
+ */
+function orbitalLane(orbitId) {
+    return orbitId.slice(-1);
+}
+
+/**
+ * Determine the y position of the object based on its current distance from Earth.
+ * @param {number} distance
+ * @param {number} ldMultiplier
+ * @returns {number}
+ */
+function yPosition(distance, ldMultiplier) {
+    return Math.ceil(distance * ldMultiplier);
+}
+
+/**
+ * Determine the display radius of the object based on its diameter.
+ * @param {number} diameter
+ * @returns {number}
+ */
+function displayRadius(diameter) {
+
+    const DEFAULT_DISPLAY_R = 80;
+
+    const diameters = [
+        {
+            "min_d": 0,
+            "max_d": 10,
+            "display_r": 5
+        },
+        {
+            "min_d": 10,
+            "max_d": 30,
+            "display_r": 10
+        },
+        {
+            "min_d": 30,
+            "max_d": 100,
+            "display_r": 20
+        },
+        {
+            "min_d": 100,
+            "max_d": 1000,
+            "display_r": 40
+        },
+        {
+            "min_d": 1000,
+            "max_d": null,
+            "display_r": DEFAULT_DISPLAY_R
+        }
+    ];
+
+    let displayR = DEFAULT_DISPLAY_R;
+
+    let i = 0;
+    const sizeCount = diameters.length;
+
+    for (i; i < sizeCount; i++) {
+
+        if (diameter >= diameters[i].min_d
+            && (diameters[i].max_d === null || diameter < diameters[i].max_d)
+        ) {
+            displayR = diameters[i].display_r;
+            break;
+        }
+    }
+
+    return displayR;
 }
