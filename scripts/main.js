@@ -1,4 +1,5 @@
 const SECONDS_PER_DAY = 86400;
+const container = $("main");
 
 apiData();
 
@@ -19,6 +20,13 @@ function apiData() {
     });
 }
 
+/**
+ * Prepares object data for display.
+ * @param {Object} data
+ * @param {Array} data.fields
+ * @param {Array} data.data
+ * @param {string} startDate Format: YYYY-mm-dd
+ */
 function handleData(data, startDate) {
     const fields = data.fields;
     const results = data.data;
@@ -47,19 +55,36 @@ function draw(neos) {
     const laneWidth = boxWidth / 10;
     const ldMultiplier = 100;
 
-    neos.forEach(function (neo) {
+    neos.forEach(function (neo, index) {
         let object = document.createElementNS(ns, "circle");
+        object.setAttribute("id", "neo_" + index);
 
         object.setAttribute("cx", (xPosition(neo['orbit_id'], laneWidth)).toString());
         object.setAttribute("cy", (yPosition(neo['current_dist_ld'], ldMultiplier)).toString());
         object.setAttribute("r", (displayRadius(neo['diameter'])).toString());
+
         object.setAttribute("stroke", "#ffffff");
         object.setAttribute("fill", "#ffffff");
 
         svg.appendChild(object);
     });
 
-    $("main").append(svg);
+    [1, 20].forEach(function (distance) {
+        let ldMarker = document.createElementNS(ns, "line");
+        ldMarker.setAttribute("id", "ld_" + distance);
+
+        ldMarker.setAttribute("x1", "0");
+        ldMarker.setAttribute("y1", (ldMultiplier * distance).toString());
+        ldMarker.setAttribute("x2", boxWidth.toString());
+        ldMarker.setAttribute("y2", (ldMultiplier * distance).toString());
+
+        ldMarker.setAttribute("stroke", "#ffffff");
+        ldMarker.setAttribute("stroke-width", "5");
+
+        svg.appendChild(ldMarker);
+    });
+
+    container.append(svg);
 }
 
 function dateString(date) {
@@ -82,7 +107,7 @@ function offsetDate(date, days) {
         days = 90;
     }
 
-    date2 = new Date(date);
+    const date2 = new Date(date);
     date2.setDate(date2.getDate() + days);
 
     return dateString(date2);
@@ -236,7 +261,7 @@ function currentDistance(closestDistance, velocity, days) {
 
 /**
  * Determine the x position of the object based on its JPL orbit ID.
- * @param {number} orbitId
+ * @param {string} orbitId
  * @param {number} laneWidth
  * @returns {number}
  */
@@ -246,8 +271,8 @@ function xPosition(orbitId, laneWidth) {
 
 /**
  * Derive a lane in which to display the object from its assigned orbit.
- * @param {number} orbitId
- * @returns {number}
+ * @param {string} orbitId
+ * @returns {string}
  */
 function orbitalLane(orbitId) {
     return orbitId.slice(-1);
