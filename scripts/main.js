@@ -1,12 +1,16 @@
 const SECONDS_PER_DAY = 86400;
+const nsSvg = "http://www.w3.org/2000/svg";
+const nsXhtml = "http://www.w3.org/1999/xhtml";
+
 const container = $("main");
+let startDate = dateString(new Date());
+let neos = [];
 
 apiData();
 
 function apiData() {
     const endpoint = "https://ssd-api.jpl.nasa.gov/cad.api";
 
-    const startDate = dateString(new Date());
     const endDate = offsetDate(startDate);
     const limit = 50;
 
@@ -31,33 +35,33 @@ function handleData(data, startDate) {
     const fields = data.fields;
     const results = data.data;
 
-    let allNeos = results.map(function (value) {
+    let allNeos = results.map(function (value, index) {
         let neo = setNeoBaseData(value, fields);
-        neo = setNeoAdditionalData(neo, startDate);
+        neo = setNeoAdditionalData(neo, startDate, index);
         return neo;
     });
 
-    let neos = allNeos.filter(potentiallyHazardousObjects);
+    neos = allNeos.filter(potentiallyHazardousObjects);
     neos.sort((a, b) => a.current_dist_ld - b.current_dist_ld);
 
-    draw(neos);
+    draw();
 }
 
-function draw(neos) {
-    const ns = "http://www.w3.org/2000/svg";
-    let svg = document.createElementNS(ns, "svg");
+function draw() {
+    let svg = document.createElementNS(nsSvg, "svg");
 
     const boxWidth = 1000;
     const boxHeight = 4000;
 
     svg.setAttributeNS(null, "viewBox", "0 0 " + boxWidth + " " + boxHeight);
+    svg.setAttribute("id", "space");
 
     const laneWidth = boxWidth / 10;
     const ldMultiplier = 100;
 
-    neos.forEach(function (neo, index) {
-        let object = document.createElementNS(ns, "circle");
-        object.setAttribute("id", "neo_" + index);
+    neos.forEach(function (neo) {
+        let object = document.createElementNS(nsSvg, "circle");
+        object.setAttribute("id", "neo_" + neo['id']);
 
         object.setAttribute("cx", (xPosition(neo['orbit_id'], laneWidth)).toString());
         object.setAttribute("cy", (yPosition(neo['current_dist_ld'], ldMultiplier)).toString());
@@ -66,11 +70,16 @@ function draw(neos) {
         object.setAttribute("stroke", "#ffffff");
         object.setAttribute("fill", "#ffffff");
 
+        let title = document.createElementNS(nsSvg, "title");
+        title.textContent = "Object " + neo['des'];
+        object.appendChild(title);
+
         svg.appendChild(object);
+        tooltipContainer(svg, neo, object);
     });
 
     [1, 20].forEach(function (distance) {
-        let ldMarker = document.createElementNS(ns, "line");
+        let ldMarker = document.createElementNS(nsSvg, "line");
         ldMarker.setAttribute("id", "ld_" + distance);
 
         ldMarker.setAttribute("x1", "0");
@@ -80,6 +89,7 @@ function draw(neos) {
 
         ldMarker.setAttribute("stroke", "#ffffff");
         ldMarker.setAttribute("stroke-width", "5");
+        ldMarker.setAttribute("stroke-dasharray", "10 25");
 
         svg.appendChild(ldMarker);
     });
@@ -137,10 +147,12 @@ function setNeoBaseData(baseData, fields) {
  * Adds calculated data to the NEO.
  * @param {Array} neo
  * @param {string} startDate
+ * @param {number} index
  * @returns {Array}
  */
-function setNeoAdditionalData(neo, startDate) {
+function setNeoAdditionalData(neo, startDate, index) {
 
+    neo['id'] = index;
     neo['closest_dist_ld'] = convertAuToLd(neo['dist']);
     neo['diameter'] = diameterFromMagnitude(neo['h']);
     neo['closest_date'] = dateFromCd(neo['cd']);
@@ -266,7 +278,10 @@ function currentDistance(closestDistance, velocity, days) {
  * @returns {number}
  */
 function xPosition(orbitId, laneWidth) {
-    return (orbitalLane(orbitId) * laneWidth) - (laneWidth / 2)
+    const laneIntervals = 5;
+    const laneInterval = laneWidth / laneIntervals;
+    const lanePosition = (Math.floor(Math.random() * laneIntervals) + 1) * laneInterval;
+    return (orbitalLane(orbitId) * laneWidth) - (lanePosition - (laneInterval / 2))
 }
 
 /**
@@ -342,3 +357,93 @@ function displayRadius(diameter) {
 
     return displayR;
 }
+
+function tooltipContainer(parent, neo, neoObject) {
+    const foreign = document.createElementNS(nsSvg, "foreignObject");
+    foreign.setAttribute("id", "neo_tooltip_" + neo['id']);
+
+    const foreignHeight = 220;
+
+    foreign.setAttribute("x", parseInt(neoObject.getAttribute("cx")) + (parseInt(neoObject.getAttribute("r")) + 20));
+    foreign.setAttribute("y", parseInt(neoObject.getAttribute("cy")) - ((foreignHeight / 2) - 10));
+    foreign.setAttribute("width", "200");
+    foreign.setAttribute("height", foreignHeight);
+
+    tooltip(neo, foreign);
+    parent.appendChild(foreign);
+}
+
+function tooltip(neo, parent) {
+    let tooltip = document.createElementNS(nsXhtml, "div");
+    tooltip.setAttribute("class", "text-center px-1 py-3");
+    tooltip.setAttribute("style", "border: 3px solid white; border-radius: 5px");
+
+    const tooltipItems = [
+        {
+            "label": "Object Name",
+            "info": neo['des'],
+            "id": "des_" + neo['id']
+        },
+        {
+            "label": "Diameter",
+            "info": (neo['diameter']).toFixed(1) + "m wide",
+            "id": "diameter_" + neo['id']
+        },
+        {
+            "label": "Current Distance",
+            "info": (neo['current_dist_ld']).toFixed(1) + "LD away on " + startDate,
+            "id": "current_" + neo['id']
+        },
+        {
+            "label": "Velocity",
+            "info": "Travelling at " + (parseFloat(neo['v_rel'])).toFixed(2) + "km/s",
+            "id": "velocity_" + neo['id']
+        },
+        {
+            "label": "Closest Approach",
+            "info": "Will reach " + (neo['closest_dist_ld']).toFixed(1) + "LD on " + neo['closest_date'],
+            "id": "closest_" + neo['id']
+        }
+    ];
+
+    tooltipItems.forEach(function (item, index) {
+        let itemDiv = document.createElementNS(nsXhtml, index === 0 ? "h5" : "div");
+        tooltipItem(item, itemDiv);
+        tooltip.appendChild(itemDiv);
+    });
+
+    parent.appendChild(tooltip);
+}
+
+function tooltipItem(values, parent) {
+    let spanLabel = document.createElementNS(nsXhtml, "span");
+    spanLabel.setAttribute("id", "tooltip_label_" + values.id);
+    spanLabel.setAttribute("class", "sr-only");
+    spanLabel.appendChild(document.createTextNode(values.label));
+
+    let spanInfo = document.createElementNS(nsXhtml, "span");
+    spanInfo.setAttribute("aria-labelledby", "tooltip_label_" + values.id);
+    spanInfo.appendChild(document.createTextNode(values.info));
+
+    parent.appendChild(spanLabel);
+    parent.appendChild(spanInfo);
+}
+
+container.on("click", "circle", function () {
+    const $this = $(this);
+    console.log($this.attr("id"));
+    console.log(neos[$this.getKey()].closest_date);
+});
+
+$.fn.getKey = function () {
+
+    const keys = this.attr("id").match(/\d+/g);
+
+    const keyCount = keys.length;
+
+    if (keyCount === 1) {
+        return keys[0];
+    }
+
+    return keys;
+};
