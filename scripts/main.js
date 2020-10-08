@@ -4,10 +4,14 @@ const nsXhtml = "http://www.w3.org/1999/xhtml";
 
 const container = $("main");
 let startDate = dateString(new Date());
+let viewingDistance = 40;
 let neos = [];
 
 apiData();
 
+/**
+ * Retrieves API data.
+ */
 function apiData() {
     const endpoint = "https://ssd-api.jpl.nasa.gov/cad.api";
 
@@ -41,61 +45,33 @@ function handleData(data, startDate) {
         return neo;
     });
 
-    neos = allNeos.filter(potentiallyHazardousObjects);
+    neos = allNeos.filter(withinViewingDistance);
     neos.sort((a, b) => a.current_dist_ld - b.current_dist_ld);
 
     draw();
 }
 
+/**
+ * Draws the SVG canvas and NEOs.
+ */
 function draw() {
     let svg = document.createElementNS(nsSvg, "svg");
+    svg.setAttribute("id", "space");
 
     const boxWidth = 1000;
     const boxHeight = 4000;
 
-    svg.setAttributeNS(null, "viewBox", "0 0 " + boxWidth + " " + boxHeight);
-    svg.setAttribute("id", "space");
-    svg.setAttribute("width", boxWidth.toString());
-    svg.setAttribute("height", boxHeight.toString());
+    svg.setAttribute("viewBox", "0 0 " + boxWidth + " " + boxHeight);
 
     const laneWidth = boxWidth / 10;
     const ldMultiplier = 100;
 
     neos.forEach(function (neo) {
-        let object = document.createElementNS(nsSvg, "circle");
-        object.setAttribute("id", "neo_" + neo['id']);
-        object.setAttribute("class", "neo-object");
-
-        object.setAttribute("cx", (xPosition(neo['orbit_id'], laneWidth)).toString());
-        object.setAttribute("cy", (yPosition(neo['current_dist_ld'], ldMultiplier)).toString());
-        object.setAttribute("r", (displayRadius(neo['diameter'])).toString());
-
-        object.setAttribute("stroke", "#ffffff");
-        object.setAttribute("fill", "#ffffff");
-
-        let title = document.createElementNS(nsSvg, "title");
-        title.textContent = "Object " + neo['des'];
-        object.appendChild(title);
-
-        svg.appendChild(object);
-        drawTooltipContainer(svg, neo, object);
+        let neoObject = drawNeo(neo, svg, laneWidth, ldMultiplier);
+        drawTooltipContainer(neo, svg, neoObject);
     });
 
-    [1, 20].forEach(function (distance) {
-        let ldMarker = document.createElementNS(nsSvg, "line");
-        ldMarker.setAttribute("id", "ld_" + distance);
-
-        ldMarker.setAttribute("x1", "0");
-        ldMarker.setAttribute("y1", (ldMultiplier * distance).toString());
-        ldMarker.setAttribute("x2", boxWidth.toString());
-        ldMarker.setAttribute("y2", (ldMultiplier * distance).toString());
-
-        ldMarker.setAttribute("stroke", "#ffffff");
-        ldMarker.setAttribute("stroke-width", "5");
-        ldMarker.setAttribute("stroke-dasharray", "10 25");
-
-        svg.appendChild(ldMarker);
-    });
+    drawLdMarkers(svg, ldMultiplier, boxWidth);
 
     container.append(svg);
 }
@@ -127,11 +103,7 @@ function dateString(date) {
  * @param {number} days
  * @returns {string}
  */
-function offsetDate(date, days) {
-
-    if (typeof days === "undefined") {
-        days = 90;
-    }
+function offsetDate(date, days = 90) {
 
     const date2 = new Date(date);
     date2.setDate(date2.getDate() + days);
@@ -169,27 +141,25 @@ function dateFromCd(cd) {
         .join("-");
 }
 
+/**
+ * Creates nice textual date from the given date.
+ * @param {string} date Format YYYY-mm-dd
+ * @returns {string}
+ */
 function niceDate(date) {
 
     const months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
 
-    dateObject = new Date(date);
+    const dateObject = new Date(date);
+    console.log(dateObject);
 
     return months[dateObject.getMonth()] + " " + dateObject.getDate();
 }
+
+/** --- CREATE NEO --------------------------------------------------------- **/
 
 /**
  * Selects only essential API data
@@ -232,7 +202,7 @@ function setNeoAdditionalData(neo, startDate, index) {
         neo['ld_per_day'],
         neo['days_to_closest']
     );
-    
+
     return neo;
 }
 
@@ -242,9 +212,8 @@ function setNeoAdditionalData(neo, startDate, index) {
  * @param {Array} neo
  * @returns {boolean}
  */
-function potentiallyHazardousObjects(neo) {
-    const PHO_DISTANCE_LD = 40;
-    return neo['current_dist_ld'] < PHO_DISTANCE_LD;
+function withinViewingDistance(neo) {
+    return neo['current_dist_ld'] < viewingDistance;
 }
 
 /**
@@ -309,13 +278,34 @@ function currentDistance(closestDistance, velocity, days) {
     return closestDistance + (velocity * days);
 }
 
+/** --- DRAWING ------------------------------------------------------------ **/
+
+function drawNeo(neo, parent, laneWidth, ldMultiplier) {
+
+    const neoObject = document.createElementNS(nsSvg, "circle");
+    neoObject.setAttribute("id", "neo_" + neo['id']);
+    neoObject.setAttribute("class", "neo-object");
+
+    neoObject.setAttribute("cx", (neoXPosition(neo['orbit_id'], laneWidth)).toString());
+    neoObject.setAttribute("cy", (neoYPosition(neo['current_dist_ld'], ldMultiplier)).toString());
+    neoObject.setAttribute("r", (neoRadius(neo['diameter'])).toString());
+
+    let colour = neoColour(neo['days_to_closest']);
+    neoObject.setAttribute("stroke", colour);
+    neoObject.setAttribute("fill", colour);
+
+    parent.appendChild(neoObject);
+
+    return neoObject;
+}
+
 /**
  * Determine the x position of the object based on its JPL orbit ID.
  * @param {string} orbitId
  * @param {number} laneWidth
  * @returns {number}
  */
-function xPosition(orbitId, laneWidth) {
+function neoXPosition(orbitId, laneWidth) {
     const laneIntervals = 5;
     const laneInterval = laneWidth / laneIntervals;
     const lanePosition = (Math.floor(Math.random() * laneIntervals) + 1) * laneInterval;
@@ -337,7 +327,7 @@ function orbitalLane(orbitId) {
  * @param {number} ldMultiplier
  * @returns {number}
  */
-function yPosition(distance, ldMultiplier) {
+function neoYPosition(distance, ldMultiplier) {
     return Math.ceil(distance * ldMultiplier);
 }
 
@@ -346,7 +336,7 @@ function yPosition(distance, ldMultiplier) {
  * @param {number} diameter
  * @returns {number}
  */
-function displayRadius(diameter) {
+function neoRadius(diameter) {
 
     const DEFAULT_DISPLAY_R = 80;
 
@@ -396,15 +386,88 @@ function displayRadius(diameter) {
     return displayR;
 }
 
-/** --- TOOLTIP ------------------------------------------------------------ **/
+function neoColour(daysToClosest) {
+
+    const DEFAULT_COLOUR = "#343a40";
+
+    const grays = [
+        {
+            "min_ld": 0,
+            "max_ld": 1,
+            "colour": "#ffffff"
+        },
+        {
+            "min_ld": 1,
+            "max_ld": 7,
+            "colour": "#adb5bd"
+        },
+        {
+            "min_ld": 7,
+            "max_ld": 30,
+            "colour": "#6c757d"
+        },
+        {
+            "min_ld": 30,
+            "max_ld": 60,
+            "colour": "#495057"
+        },
+        {
+            "min_ld": 60,
+            "max_ld": null,
+            "colour": DEFAULT_COLOUR
+        },
+    ];
+
+    let colour = DEFAULT_COLOUR;
+
+    let i = 0;
+    const count = grays.length;
+
+    for (i; i < count; i++) {
+
+        if (daysToClosest >= grays[i].min_ld
+            && (grays[i].max_ld === null || daysToClosest < grays[i].max_ld)
+        ) {
+            colour = grays[i].colour;
+            break;
+        }
+    }
+
+    return colour;
+}
+
+/**
+ * Draws Lunar Distance markers.
+ * @param {Object} parent The SVG canvas
+ * @param {number} ldMultiplier
+ * @param {number} boxWidth
+ */
+function drawLdMarkers(parent, ldMultiplier, boxWidth) {
+
+    [1, 20].forEach(function (distance) {
+        let ldMarker = document.createElementNS(nsSvg, "line");
+        ldMarker.setAttribute("id", "ld_" + distance);
+
+        ldMarker.setAttribute("x1", "0");
+        ldMarker.setAttribute("y1", (ldMultiplier * distance).toString());
+        ldMarker.setAttribute("x2", boxWidth.toString());
+        ldMarker.setAttribute("y2", (ldMultiplier * distance).toString());
+
+        ldMarker.setAttribute("stroke", "#ffffff");
+        ldMarker.setAttribute("stroke-width", "5");
+        ldMarker.setAttribute("stroke-dasharray", "10 25");
+
+        parent.appendChild(ldMarker);
+    });
+}
 
 /**
  * Draws the foreignObject to contain the tooltip.
- * @param {Object} parent The SVG canvas
  * @param {Array} neo
+ * @param {Object} parent The SVG canvas
  * @param {Object} neoObject The tooltip's NEO
  */
-function drawTooltipContainer(parent, neo, neoObject) {
+function drawTooltipContainer(neo, parent, neoObject) {
     const foreign = document.createElementNS(nsSvg, "foreignObject");
     foreign.setAttribute("id", "neo_tooltip_" + neo['id']);
     foreign.setAttribute("class", "tooltip-container");
@@ -412,8 +475,8 @@ function drawTooltipContainer(parent, neo, neoObject) {
     const foreignHeight = 180;
     const foreignWidth = 250;
 
-    foreign.setAttribute("x", tooltipXPosition(neoObject, foreignWidth, parent.getAttribute("width")));
-    foreign.setAttribute("y", tooltipYPosition(neoObject, foreignHeight));
+    foreign.setAttribute("x", tooltipXPosition(neoObject, foreignWidth, parent).toString());
+    foreign.setAttribute("y", tooltipYPosition(neoObject, foreignHeight).toString());
     foreign.setAttribute("width", foreignWidth.toString());
     foreign.setAttribute("height", foreignHeight.toString());
 
@@ -426,11 +489,12 @@ function drawTooltipContainer(parent, neo, neoObject) {
  * so that it does not go off the screen.
  * @param {Object} neoObject The tooltip's NEO
  * @param {number} width
- * @param {number} parentWidth Width of the SVG canvas
+ * @param {Object} parent The SVG canvas
  * @returns {number}
  */
-function tooltipXPosition(neoObject, width, parentWidth) {
+function tooltipXPosition(neoObject, width, parent) {
 
+    const parentWidth = parent.getAttribute("viewBox").split(" ")[2];
     const neoCenter = parseInt(neoObject.getAttribute("cx"));
     const neoRadius = parseInt(neoObject.getAttribute("r"));
     const padding = 20;
@@ -549,10 +613,13 @@ container.on("click", ".tooltip-div", function () {
     }
 });
 
+/**
+ * Gets an object's numerical id.
+ * @returns {string|RegExpMatchArray}
+ */
 $.fn.getKey = function () {
 
     const keys = this.attr("id").match(/\d+/g);
-
     const keyCount = keys.length;
 
     if (keyCount === 1) {
