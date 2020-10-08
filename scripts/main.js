@@ -1,9 +1,11 @@
-const SECONDS_PER_DAY = 86400;
+const endpoint = "https://ssd-api.jpl.nasa.gov/cad.api";
 const nsSvg = "http://www.w3.org/2000/svg";
 const nsXhtml = "http://www.w3.org/1999/xhtml";
 
+const SECONDS_PER_DAY = 86400;
 const container = $("main");
-let startDate = dateString(new Date());
+
+let startDate = dateString(new Date("2020-12-02"));
 let viewingDistance = 40;
 let neos = [];
 
@@ -13,17 +15,41 @@ apiData();
  * Retrieves API data.
  */
 function apiData() {
-    const endpoint = "https://ssd-api.jpl.nasa.gov/cad.api";
 
     const endDate = offsetDate(startDate);
     const limit = 50;
 
     $.ajax({
-        url: endpoint + "?body=Earth&limit=" + limit + '&date-min=' + startDate + "&date-max=" + endDate,
+        url: endpoint + "?body=Earth&limit=" + limit + "&date-min=" + startDate + "&date-max=" + endDate,
         type: "GET",
-        dataType: 'json',
+        dataType: "json",
         success: function (data) {
             handleData(data, startDate);
+        }
+    });
+}
+
+/**
+ * @callback requestCallback
+ * @param {Object} data
+ */
+/**
+ * Retrieves the next approach for the given NEO designation.
+ * @param {requestCallback} handleNextApproach
+ * @param {string} des
+ * @param {string} currentApproachDate
+ */
+function getNextApproach(handleNextApproach, des, currentApproachDate) {
+
+    const startDate = offsetDate(currentApproachDate, 1);
+    const endDate = offsetDate(startDate, 3650);
+
+    $.ajax({
+        url: endpoint + "?body=Earth&limit=1&des=" + des + "&date-min=" + startDate + "&date-max=" + endDate,
+        type: "GET",
+        dataType: "json",
+        success: function (data) {
+            handleNextApproach(data);
         }
     });
 }
@@ -42,11 +68,17 @@ function handleData(data, startDate) {
     let allNeos = results.map(function (value, index) {
         let neo = setNeoBaseData(value, fields);
         neo = setNeoAdditionalData(neo, startDate, index);
+
         return neo;
     });
 
+    console.log(neos);
+
     neos = allNeos.filter(withinViewingDistance);
     neos.sort((a, b) => a.current_dist_ld - b.current_dist_ld);
+    neos.map(setNextApproach);
+
+    console.log(neos);
 
     draw();
 }
@@ -154,7 +186,7 @@ function niceDate(date) {
     ];
 
     const dateObject = new Date(date);
-    console.log(dateObject);
+    //console.log(dateObject);
 
     return months[dateObject.getMonth()] + " " + dateObject.getDate();
 }
@@ -276,6 +308,22 @@ function ldPerDay(velocityKmS) {
  */
 function currentDistance(closestDistance, velocity, days) {
     return closestDistance + (velocity * days);
+}
+
+function setNextApproach(neo) {
+
+    if (neo['days_to_closest'] > 0) {
+        neo['next_approach'] = null;
+        return neo;
+    }
+
+    getNextApproach(function(nextApproach) {
+        if (nextApproach.count > 0) {
+            neo['next_approach'] = dateFromCd(nextApproach.data[0][3]);
+        }
+    }, neo['des'], neo['closest_date']);
+
+    return neo;
 }
 
 /** --- DRAWING ------------------------------------------------------------ **/
@@ -524,6 +572,8 @@ function tooltipYPosition(neoObject, height) {
  */
 function drawTooltip(neo, parent) {
 
+    console.log(neo);
+
     let tooltip = document.createElementNS(nsXhtml, "div");
     tooltip.setAttribute("class", "tooltip-div text-center p-3 sr-only");
 
@@ -557,6 +607,11 @@ function drawTooltip(neo, parent) {
             "label": "Closest Approach",
             "info": "Will reach " + (neo['closest_dist_ld']).toFixed(1) + " LD on " + niceDate(neo['closest_date']),
             "id": "closest_" + neo['id']
+        },
+        {
+            "label": "Next Approach",
+            "info": "Will visit again on " + neo['next_approach'] === null ? "N/A" : niceDate(neo['next_approach']),
+            "id": "next_" + neo['id']
         }
     ];
 
