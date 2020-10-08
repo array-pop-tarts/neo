@@ -55,6 +55,8 @@ function draw() {
 
     svg.setAttributeNS(null, "viewBox", "0 0 " + boxWidth + " " + boxHeight);
     svg.setAttribute("id", "space");
+    svg.setAttribute("width", boxWidth.toString());
+    svg.setAttribute("height", boxHeight.toString());
 
     const laneWidth = boxWidth / 10;
     const ldMultiplier = 100;
@@ -62,6 +64,7 @@ function draw() {
     neos.forEach(function (neo) {
         let object = document.createElementNS(nsSvg, "circle");
         object.setAttribute("id", "neo_" + neo['id']);
+        object.setAttribute("class", "neo-object");
 
         object.setAttribute("cx", (xPosition(neo['orbit_id'], laneWidth)).toString());
         object.setAttribute("cy", (yPosition(neo['current_dist_ld'], ldMultiplier)).toString());
@@ -75,7 +78,7 @@ function draw() {
         object.appendChild(title);
 
         svg.appendChild(object);
-        tooltipContainer(svg, neo, object);
+        drawTooltipContainer(svg, neo, object);
     });
 
     [1, 20].forEach(function (distance) {
@@ -97,6 +100,13 @@ function draw() {
     container.append(svg);
 }
 
+/** --- DATES -------------------------------------------------------------- **/
+
+/**
+ * Formats the given date to YYYY-mm-dd
+ * @param {Date} date
+ * @returns {string}
+ */
 function dateString(date) {
 
     let month = date.getMonth() + 1;
@@ -111,6 +121,12 @@ function dateString(date) {
     return date.getFullYear() + '-' + month + '-' + day;
 }
 
+/**
+ * Creates a new date offset from the given date by the given number of days.
+ * @param {string} date Format: YYYY-mm-dd
+ * @param {number} days
+ * @returns {string}
+ */
 function offsetDate(date, days) {
 
     if (typeof days === "undefined") {
@@ -121,6 +137,58 @@ function offsetDate(date, days) {
     date2.setDate(date2.getDate() + days);
 
     return dateString(date2);
+}
+
+/**
+ * Converts calendar date from API format
+ * to string date in format YYYY-mm-dd.
+ * @param {string} cd
+ * @returns {string}
+ */
+function dateFromCd(cd) {
+
+    const cdParts = cd.split(" ");
+    const cdDateParts = cdParts[0].split("-");
+
+    const months = {
+        "Jan": "01",
+        "Feb": "02",
+        "Mar": "03",
+        "Apr": "04",
+        "May": "05",
+        "Jun": "06",
+        "Jul": "07",
+        "Aug": "08",
+        "Sep": "09",
+        "Oct": "10",
+        "Nov": "11",
+        "Dec": "12"
+    };
+
+    return [cdDateParts[0], months[cdDateParts[1]], cdDateParts[2]]
+        .join("-");
+}
+
+function niceDate(date) {
+
+    const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+    ];
+
+    dateObject = new Date(date);
+
+    return months[dateObject.getMonth()] + " " + dateObject.getDate();
 }
 
 /**
@@ -204,36 +272,6 @@ function diameterFromMagnitude(h) {
         Math.pow(10, -0.2 * h)
         / Math.sqrt(ALBEDO)
     ) * EQUATION_CONSTANT * 1000;
-}
-
-/**
- * Converts calendar date from API format
- * to string date for creating Date object.
- * @param {string} cd
- * @returns {string}
- */
-function dateFromCd(cd) {
-
-    const cdParts = cd.split(" ");
-    const cdDateParts = cdParts[0].split("-");
-
-    const months = {
-        "Jan": "01",
-        "Feb": "02",
-        "Mar": "03",
-        "Apr": "04",
-        "May": "05",
-        "Jun": "06",
-        "Jul": "07",
-        "Aug": "08",
-        "Sep": "09",
-        "Oct": "10",
-        "Nov": "11",
-        "Dec": "12"
-    };
-
-    return [cdDateParts[0], months[cdDateParts[1]], cdDateParts[2]]
-        .join("-");
 }
 
 /**
@@ -358,25 +396,73 @@ function displayRadius(diameter) {
     return displayR;
 }
 
-function tooltipContainer(parent, neo, neoObject) {
+/** --- TOOLTIP ------------------------------------------------------------ **/
+
+/**
+ * Draws the foreignObject to contain the tooltip.
+ * @param {Object} parent The SVG canvas
+ * @param {Array} neo
+ * @param {Object} neoObject The tooltip's NEO
+ */
+function drawTooltipContainer(parent, neo, neoObject) {
     const foreign = document.createElementNS(nsSvg, "foreignObject");
     foreign.setAttribute("id", "neo_tooltip_" + neo['id']);
+    foreign.setAttribute("class", "tooltip-container");
 
-    const foreignHeight = 220;
+    const foreignHeight = 180;
+    const foreignWidth = 250;
 
-    foreign.setAttribute("x", parseInt(neoObject.getAttribute("cx")) + (parseInt(neoObject.getAttribute("r")) + 20));
-    foreign.setAttribute("y", parseInt(neoObject.getAttribute("cy")) - ((foreignHeight / 2) - 10));
-    foreign.setAttribute("width", "200");
-    foreign.setAttribute("height", foreignHeight);
+    foreign.setAttribute("x", tooltipXPosition(neoObject, foreignWidth, parent.getAttribute("width")));
+    foreign.setAttribute("y", tooltipYPosition(neoObject, foreignHeight));
+    foreign.setAttribute("width", foreignWidth.toString());
+    foreign.setAttribute("height", foreignHeight.toString());
 
-    tooltip(neo, foreign);
+    drawTooltip(neo, foreign);
     parent.appendChild(foreign);
 }
 
-function tooltip(neo, parent) {
+/**
+ * Positions the tooltip container either on the left or right side of the NEO
+ * so that it does not go off the screen.
+ * @param {Object} neoObject The tooltip's NEO
+ * @param {number} width
+ * @param {number} parentWidth Width of the SVG canvas
+ * @returns {number}
+ */
+function tooltipXPosition(neoObject, width, parentWidth) {
+
+    const neoCenter = parseInt(neoObject.getAttribute("cx"));
+    const neoRadius = parseInt(neoObject.getAttribute("r"));
+    const padding = 20;
+
+    if (neoCenter <= (parentWidth / 2)) {
+        return neoCenter + neoRadius + padding;
+    }
+
+    return neoCenter - neoRadius - padding - width;
+}
+
+/**
+ * Positions the tooltip container halfway up the NEO.
+ * @param {Object} neoObject The tooltip's NEO
+ * @param {number} height
+ * @returns {number}
+ */
+function tooltipYPosition(neoObject, height) {
+    const neoCenter = parseInt(neoObject.getAttribute("cy"));
+    return neoCenter - (height / 2);
+}
+
+/**
+ * Draws the tooltip.
+ * @param {Array} neo
+ * @param {Object} parent The foreignObject container
+ */
+function drawTooltip(neo, parent) {
+
     let tooltip = document.createElementNS(nsXhtml, "div");
-    tooltip.setAttribute("class", "text-center px-1 py-3");
-    tooltip.setAttribute("style", "border: 3px solid white; border-radius: 5px");
+    tooltip.setAttribute("class", "tooltip-div text-center p-3 sr-only");
+    tooltip.setAttribute("style", "border: 3px solid white; border-radius: 5px; background: black");
 
     const tooltipItems = [
         {
@@ -391,7 +477,7 @@ function tooltip(neo, parent) {
         },
         {
             "label": "Current Distance",
-            "info": (neo['current_dist_ld']).toFixed(1) + "LD away on " + startDate,
+            "info": (neo['current_dist_ld']).toFixed(1) + " LD away on " + niceDate(startDate),
             "id": "current_" + neo['id']
         },
         {
@@ -401,21 +487,27 @@ function tooltip(neo, parent) {
         },
         {
             "label": "Closest Approach",
-            "info": "Will reach " + (neo['closest_dist_ld']).toFixed(1) + "LD on " + neo['closest_date'],
+            "info": "Will reach " + (neo['closest_dist_ld']).toFixed(1) + " LD on " + niceDate(neo['closest_date']),
             "id": "closest_" + neo['id']
         }
     ];
 
     tooltipItems.forEach(function (item, index) {
         let itemDiv = document.createElementNS(nsXhtml, index === 0 ? "h5" : "div");
-        tooltipItem(item, itemDiv);
+        drawTooltipItem(item, itemDiv);
         tooltip.appendChild(itemDiv);
     });
 
     parent.appendChild(tooltip);
 }
 
-function tooltipItem(values, parent) {
+/**
+ * Draws a tooltip item, with a label and information.
+ * @param {Object} values
+ * @param {Object} parent The tooltip div
+ */
+function drawTooltipItem(values, parent) {
+
     let spanLabel = document.createElementNS(nsXhtml, "span");
     spanLabel.setAttribute("id", "tooltip_label_" + values.id);
     spanLabel.setAttribute("class", "sr-only");
@@ -429,10 +521,32 @@ function tooltipItem(values, parent) {
     parent.appendChild(spanInfo);
 }
 
-container.on("click", "circle", function () {
+/** --- EVENT LISTENERS ---------------------------------------------------- **/
+
+/**
+ * Shows and hides the tooltips.
+ */
+container.on("click", ".neo-object", function () {
+
     const $this = $(this);
-    console.log($this.attr("id"));
-    console.log(neos[$this.getKey()].closest_date);
+    const key = $this.getKey();
+
+    $this.closest("svg").find(".tooltip-div").each(function () {
+        if (! $(this).hasClass("sr-only")) {
+            $(this).addClass("sr-only");
+        }
+    });
+
+    $("#neo_tooltip_" + key).find(".tooltip-div").removeClass("sr-only");
+});
+
+/**
+ * Hides at tooltip.
+ */
+container.on("click", ".tooltip-div", function () {
+    if (! $(this).hasClass("sr-only")) {
+        $(this).addClass("sr-only");
+    }
 });
 
 $.fn.getKey = function () {
