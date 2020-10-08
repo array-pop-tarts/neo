@@ -526,7 +526,11 @@ function drawTooltip(neo, parent) {
 
     let tooltip = document.createElementNS(nsXhtml, "div");
     tooltip.setAttribute("class", "tooltip-div text-center p-3 sr-only");
-    tooltip.setAttribute("style", "border: 3px solid white; border-radius: 5px; background: black");
+
+    let close = document.createElementNS(nsXhtml, "button");
+    close.setAttribute("class", "btn btn-sm btn-dark tooltip-div-close");
+    close.appendChild(document.createTextNode("X"));
+    tooltip.appendChild(close);
 
     const tooltipItems = [
         {
@@ -607,10 +611,12 @@ container.on("click", ".neo-object", function () {
 /**
  * Hides at tooltip.
  */
-container.on("click", ".tooltip-div", function () {
-    if (! $(this).hasClass("sr-only")) {
-        $(this).addClass("sr-only");
-    }
+container.on("click", ".tooltip-div-close", function () {
+    $(this).closest(".tooltip-div").each(function () {
+        if (! $(this).hasClass("sr-only")) {
+            $(this).addClass("sr-only");
+        }
+    });
 });
 
 /**

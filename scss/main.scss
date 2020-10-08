@@ -6,3 +6,20 @@ body {
     background-size: contain;
     background-repeat: no-repeat;
 }
+
+.neo-object {
+    cursor: pointer;
+}
+
+.tooltip-div {
+
+    border: 3px solid white;
+    border-radius: 5px;
+    background: black;
+
+    .tooltip-div-close {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+    }
+}
