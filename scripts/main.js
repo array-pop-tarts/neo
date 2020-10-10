@@ -5,7 +5,7 @@ const nsXhtml = "http://www.w3.org/1999/xhtml";
 const SECONDS_PER_DAY = 86400;
 const container = $("main");
 
-let startDate = dateString(new Date("2020-12-02"));
+let startDate = dateString(new Date());
 let viewingDistance = 40;
 let neos = [];
 
@@ -72,13 +72,9 @@ function handleData(data, startDate) {
         return neo;
     });
 
-    console.log(neos);
-
     neos = allNeos.filter(withinViewingDistance);
     neos.sort((a, b) => a.current_dist_ld - b.current_dist_ld);
     neos.map(setNextApproach);
-
-    console.log(neos);
 
     draw();
 }
@@ -571,8 +567,6 @@ function tooltipYPosition(neoObject, height) {
  * @param {Object} parent The foreignObject container
  */
 function drawTooltip(neo, parent) {
-
-    console.log(neo);
 
     let tooltip = document.createElementNS(nsXhtml, "div");
     tooltip.setAttribute("class", "tooltip-div text-center p-3 sr-only");
