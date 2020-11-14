@@ -591,6 +591,8 @@ function drawTooltip(neo, parent) {
     close.appendChild(document.createTextNode("X"));
     tooltip.appendChild(close);
 
+    const arrivesToday = neo['days_to_closest'] === 0;
+
     let tooltipItems = [
         {
             "label": "Object Name",
@@ -604,20 +606,27 @@ function drawTooltip(neo, parent) {
         },
         {
             "label": "Current Distance",
-            "info": (neo['current_dist_ld']).toFixed(1) + " LD away today",
+            "info": arrivesToday
+                ? "Reached " + (neo['current_dist_ld']).toFixed(1) + " LD today at closest approach!"
+                : (neo['current_dist_ld']).toFixed(1) + " LD away today",
             "id": "current_" + neo['id']
-        },
-        {
-            "label": "Velocity",
-            "info": "Travelling at " + (parseFloat(neo['v_rel'])).toFixed(2) + "km/s",
-            "id": "velocity_" + neo['id']
-        },
-        {
-            "label": "Closest Approach",
-            "info": "Will reach " + (neo['closest_dist_ld']).toFixed(1) + " LD on " + niceDate(neo['closest_date']),
-            "id": "closest_" + neo['id']
         }
     ];
+
+    if (!arrivesToday) {
+        tooltipItems.push(
+            {
+                "label": "Velocity",
+                "info": "Travelling at " + (parseFloat(neo['v_rel'])).toFixed(2) + "km/s",
+                "id": "velocity_" + neo['id']
+            },
+            {
+                "label": "Closest Approach",
+                "info": "Will reach " + (neo['closest_dist_ld']).toFixed(1) + " LD on " + niceDate(neo['closest_date']),
+                "id": "closest_" + neo['id']
+            }
+        );
+    }
 
 /*
     if (neo.hasOwnProperty('next_approach')) {
