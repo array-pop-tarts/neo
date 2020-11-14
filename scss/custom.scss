@@ -1,11 +1,8 @@
-$gray-100: #f8f9fa;
+$gray-100:                  #f8f9fa;
 
-
-
-$grid-columns:                24;
+$grid-columns:              24;
 
 $body-bg:                   #000;
 $body-color:                $gray-100;
-
 
 @import "bootstrap/bootstrap";

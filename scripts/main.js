@@ -74,7 +74,7 @@ function handleData(data, startDate) {
 
     neos = allNeos.filter(withinViewingDistance);
     neos.sort((a, b) => a.current_dist_ld - b.current_dist_ld);
-    neos.map(setNextApproach);
+    //neos.map(setNextApproach);
 
     draw();
 }
@@ -132,10 +132,8 @@ function dateString(date) {
  * @returns {string}
  */
 function offsetDate(date, days = 90) {
-
-    const date2 = new Date(date);
+    const date2 = dateFromString(date);
     date2.setDate(date2.getDate() + days);
-
     return dateString(date2);
 }
 
@@ -181,10 +179,22 @@ function niceDate(date) {
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
 
-    const dateObject = new Date(date);
-    //console.log(dateObject);
-
+    const dateObject = dateFromString(date);
     return months[dateObject.getMonth()] + " " + dateObject.getDate();
+}
+
+/**
+ * Creates date object from string date.
+ * @param {string} stringDate "YYYY-mm-dd"
+ * @returns {Date}
+ */
+function dateFromString(stringDate) {
+
+    const dateParts = (stringDate.split("-")).map(function(datePart) {
+        return parseInt(datePart);
+    });
+
+    return new Date(dateParts[0], (dateParts[1] - 1), dateParts[2]);
 }
 
 /** --- CREATE NEO --------------------------------------------------------- **/
@@ -306,16 +316,21 @@ function currentDistance(closestDistance, velocity, days) {
     return closestDistance + (velocity * days);
 }
 
+/**
+ * Sets the next approach after the current closest approach, if available.
+ * @param {Array} neo
+ * @returns {Array}
+ */
 function setNextApproach(neo) {
 
     if (neo['days_to_closest'] > 0) {
-        neo['next_approach'] = null;
         return neo;
     }
 
-    getNextApproach(function(nextApproach) {
-        if (nextApproach.count > 0) {
-            neo['next_approach'] = dateFromCd(nextApproach.data[0][3]);
+    getNextApproach(function(nextApproaches) {
+        console.log(parseInt(nextApproaches['count']));
+        if (parseInt(nextApproaches['count']) > 0) {
+            neo['next_approach'] = dateFromCd(nextApproaches.data[0][3]);
         }
     }, neo['des'], neo['closest_date']);
 
@@ -576,7 +591,7 @@ function drawTooltip(neo, parent) {
     close.appendChild(document.createTextNode("X"));
     tooltip.appendChild(close);
 
-    const tooltipItems = [
+    let tooltipItems = [
         {
             "label": "Object Name",
             "info": neo['des'],
@@ -589,7 +604,7 @@ function drawTooltip(neo, parent) {
         },
         {
             "label": "Current Distance",
-            "info": (neo['current_dist_ld']).toFixed(1) + " LD away on " + niceDate(startDate),
+            "info": (neo['current_dist_ld']).toFixed(1) + " LD away today",
             "id": "current_" + neo['id']
         },
         {
@@ -601,13 +616,17 @@ function drawTooltip(neo, parent) {
             "label": "Closest Approach",
             "info": "Will reach " + (neo['closest_dist_ld']).toFixed(1) + " LD on " + niceDate(neo['closest_date']),
             "id": "closest_" + neo['id']
-        },
-        {
-            "label": "Next Approach",
-            "info": "Will visit again on " + neo['next_approach'] === null ? "N/A" : niceDate(neo['next_approach']),
-            "id": "next_" + neo['id']
         }
     ];
+
+/*
+    if (neo.hasOwnProperty('next_approach')) {
+        tooltipItems.push({
+            "label": "Next Approach",
+            "id": "next_" + neo['id']
+        });
+    }
+*/
 
     tooltipItems.forEach(function (item, index) {
         let itemDiv = document.createElementNS(nsXhtml, index === 0 ? "h5" : "div");
