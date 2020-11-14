@@ -74,6 +74,12 @@ function handleData(data, startDate) {
 
     neos = allNeos.filter(withinViewingDistance);
     neos.sort((a, b) => a.current_dist_ld - b.current_dist_ld);
+
+    /**
+     * This would retrieve the next approach of any NEOs that are on their closest approach today,
+     * but the asynchronous retrieval of the date of next approach could not be captured correctly
+     * to be set to the NEO array, so I have had to scrap this feature.
+     */
     //neos.map(setNextApproach);
 
     draw();
@@ -327,6 +333,12 @@ function setNextApproach(neo) {
         return neo;
     }
 
+    /**
+     * This asynchronous function does not set the next approach value to the NEO
+     * by the time the parent function returns.
+     * I couldn't find a way to set the value from this Ajax call,
+     * so the feature is not included.
+     */
     getNextApproach(function(nextApproaches) {
         console.log(parseInt(nextApproaches['count']));
         if (parseInt(nextApproaches['count']) > 0) {
@@ -636,14 +648,18 @@ function drawTooltip(neo, parent) {
         );
     }
 
-/*
-    if (neo.hasOwnProperty('next_approach')) {
-        tooltipItems.push({
-            "label": "Next Approach",
-            "id": "next_" + neo['id']
-        });
-    }
-*/
+    /**
+     * Next approach data excluded because not loading well asynchronously.
+     */
+    /*
+        if (neo.hasOwnProperty('next_approach')) {
+            tooltipItems.push({
+                "label": "Next Approach",
+                "info": "See you next time on " + niceDate(neo['next_approach']) + "!"
+                "id": "next_" + neo['id']
+            });
+        }
+    */
 
     tooltipItems.forEach(function (item, index) {
         let itemDiv = document.createElementNS(nsXhtml, index === 0 ? "h5" : "div");
@@ -706,6 +722,7 @@ container.on("click", ".tooltip-div-close", function () {
 
 /**
  * Gets an object's numerical id.
+ * This is a utility function I had developed at work and copied to this project.
  * @returns {string|RegExpMatchArray}
  */
 $.fn.getKey = function () {
