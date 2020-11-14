@@ -512,11 +512,19 @@ function drawLdMarkers(parent, ldMultiplier, boxWidth) {
         ldMarker.setAttribute("x2", boxWidth.toString());
         ldMarker.setAttribute("y2", (ldMultiplier * distance).toString());
 
-        ldMarker.setAttribute("stroke", "#ffffff");
+        ldMarker.setAttribute("stroke", "#adb5bd");
         ldMarker.setAttribute("stroke-width", "5");
         ldMarker.setAttribute("stroke-dasharray", "10 25");
 
+        let ldMarkerText = document.createElementNS(nsSvg, "text");
+        ldMarkerText.setAttribute("x", (boxWidth - 100).toString());
+        ldMarkerText.setAttribute("y", (ldMultiplier * distance + 50).toString());
+        ldMarkerText.setAttribute("font-size", "25");
+        ldMarkerText.setAttribute("fill", "#6c757d");
+        ldMarkerText.textContent = distance + " LD";
+
         parent.appendChild(ldMarker);
+        parent.appendChild(ldMarkerText);
     });
 }
 
