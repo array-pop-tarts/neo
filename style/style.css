@@ -9031,11 +9031,19 @@ a.text-dark:hover, a.text-dark:focus {
     color: inherit;
     border-color: #dee2e6; } }
 
-body {
-  background-image: url("../img/target-earth.jpg");
-  background-position: 50% 0;
-  background-size: contain;
-  background-repeat: no-repeat; }
+header {
+  position: relative; }
+
+h1 {
+  position: absolute;
+  margin: auto;
+  top: 2rem;
+  left: 50%;
+  -webkit-transform: translate(-50%);
+  -ms-transform: translate(-50%);
+  transform: translate(-50%);
+  font-size: 1.5rem;
+  text-shadow: 3px 3px 4px black; }
 
 .neo-object {
   cursor: pointer; }

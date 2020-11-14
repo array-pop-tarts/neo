@@ -10,11 +10,15 @@
 <body>
 
 <header>
-    <nav class="navbar">
-        <span class="navbar-brand">
-            Near-Earth Objects
-        </span>
-    </nav>
+    <picture>
+        <source srcset="img/target-earth.jpg" media="(min-width: 1200px)">
+        <source srcset="img/target-earth-lg.jpg" media="(min-width: 992px)">
+        <source srcset="img/target-earth-md.jpg" media="(min-width: 768px)">
+        <source srcset="img/target-earth-sm.jpg" media="(min-width: 576px)">
+        <source srcset="img/target-earth-xs.jpg" media="(min-width: 0px)">
+        <img src="img/target-earth.jpg" alt="" class="img-fluid">
+    </picture>
+    <h1>Near-Earth Objects</h1>
 </header>
 
 <main class="container">
